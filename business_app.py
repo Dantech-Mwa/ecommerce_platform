@@ -35,7 +35,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS customers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            email TEXT UNIQUE,  -- Ensure email is unique
+            email TEXT UNIQUE,
             orders INTEGER,
             is_active INTEGER
         )
@@ -120,6 +120,26 @@ def add_customer(name, email, orders=0, is_active=1):
         st.error(f"Database error: {e}")
         return None
 
+def fetch_sales_data():
+    try:
+        conn = sqlite3.connect('business_data.db')
+        df = pd.read_sql_query('SELECT * FROM sales', conn)
+        conn.close()
+        return df
+    except sqlite3.Error as e:
+        st.error(f"Database error: {e}")
+        return pd.DataFrame()
+
+def fetch_inventory_data():
+    try:
+        conn = sqlite3.connect('business_data.db')
+        df = pd.read_sql_query('SELECT * FROM inventory', conn)
+        conn.close()
+        return df
+    except sqlite3.Error as e:
+        st.error(f"Database error: {e}")
+        return pd.DataFrame()
+
 def fetch_customers():
     try:
         conn = sqlite3.connect('business_data.db')
@@ -139,7 +159,7 @@ def main():
     init_db()
 
     # Tabs for different management tasks
-    tab1, tab2, tab3, tab4 = st.tabs(["Add Sale", "Update Inventory", "Manage Customers", "Import Data"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Add Sale", "Update Inventory", "Manage Customers", "Import Data", "View Data"])
 
     # Tab 1: Add Sale
     with tab1:
@@ -214,6 +234,31 @@ def main():
                     st.success(f"Customer {row['name']} imported with ID: {customer_id}")
                 else:
                     st.error(f"Failed to import customer {row['name']}.")
+
+    # Tab 5: View Data
+    with tab5:
+        st.subheader("View All Data")
+        
+        st.write("### Sales Data")
+        sales_df = fetch_sales_data()
+        if not sales_df.empty:
+            st.dataframe(sales_df)
+        else:
+            st.write("No sales data available.")
+        
+        st.write("### Inventory Data")
+        inventory_df = fetch_inventory_data()
+        if not inventory_df.empty:
+            st.dataframe(inventory_df)
+        else:
+            st.write("No inventory data available.")
+        
+        st.write("### Customers Data")
+        customer_df = fetch_customers()
+        if not customer_df.empty:
+            st.dataframe(customer_df)
+        else:
+            st.write("No customer data available.")
 
     # Simulate Business Activity
     if st.button("Simulate Daily Sales", key="simulate_sales"):
