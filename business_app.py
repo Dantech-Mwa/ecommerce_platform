@@ -61,12 +61,14 @@ def add_sale(product, quantity, selling_price, buying_price, customer_id):
         st.error(f"Database error: {e}")
         return False
 
-def add_inventory(product, stock):
+def add_inventory(product, stock, last_updated=None):
     try:
+        if last_updated is None:
+            last_updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         conn = sqlite3.connect('business_data.db')
         c = conn.cursor()
         c.execute('INSERT OR REPLACE INTO inventory (product, stock, last_updated) VALUES (?, ?, ?)',
-                  (product, stock, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                  (product, stock, last_updated))
         conn.commit()
         conn.close()
         return True
@@ -99,71 +101,100 @@ def fetch_customers():
         return pd.DataFrame()
 
 # --- Streamlit Interface ---
-st.set_page_config(page_title="E-Commerce Business Management", layout="wide")
-st.title("🛒 E-Commerce Business Management")
+def main():
+    st.title("🛒 E-Commerce Business Management")
+    st.title("Business Management Platform")
 
-# Initialize database
-init_db()
+    # Initialize database
+    init_db()
 
-# Tabs for different management tasks
-tab1, tab2, tab3, tab4 = st.tabs(["Add Sale", "Update Inventory", "Manage Customers", "Import Data"])
+    # Tabs for different management tasks
+    tab1, tab2, tab3, tab4 = st.tabs(["Add Sale", "Update Inventory", "Manage Customers", "Import Data"])
 
-# Tab 1: Add Sale
-with tab1:
-    st.subheader("Record a Sale")
-    product = st.selectbox("Product", ["Phone", "Tablet", "TV", "Appliance"])
-    quantity = st.number_input("Quantity", min_value=1, value=1)
-    selling_price = st.number_input("Selling Price per Unit (Ksh)", min_value=0.0, value=1000.0)
-    buying_price = st.number_input("Buying Price per Unit (Ksh)", min_value=0.0, value=600.0)
-    customer_id = st.number_input("Customer ID", min_value=1, value=1)
-    if st.button("Add Sale"):
-        if add_sale(product, quantity, selling_price, buying_price, customer_id):
-            st.success("Sale recorded!")
+    # Tab 1: Add Sale
+    with tab1:
+        st.subheader("Record a Sale")
+        product = st.selectbox("Product", ["Phone", "Tablet", "TV", "Appliance"], key="sale_product")
+        quantity = st.number_input("Quantity", min_value=1, value=1, key="sale_quantity")
+        selling_price = st.number_input("Selling Price per Unit (Ksh)", min_value=0.0, value=1000.0, key="sale_selling_price")
+        buying_price = st.number_input("Buying Price per Unit (Ksh)", min_value=0.0, value=600.0, key="sale_buying_price")
+        customer_id = st.number_input("Customer ID", min_value=1, value=1, key="sale_customer_id")
+        if st.button("Add Sale", key="add_sale_button"):
+            if add_sale(product, quantity, selling_price, buying_price, customer_id):
+                st.success("Sale recorded!")
 
-# Tab 2: Update Inventory
-with tab2:
-    st.subheader("Update Inventory")
-    product = st.selectbox("Product (Inventory)", ["Phone", "Tablet", "TV", "Appliance"])
-    stock = st.number_input("Stock Level", min_value=0, value=0)
-    if st.button("Update Inventory"):
-        if add_inventory(product, stock):
-            st.success("Inventory updated!")
+    # Tab 2: Update Inventory
+    with tab2:
+        st.subheader("Update Inventory")
+        product = st.selectbox("Product (Inventory)", ["Phone", "Tablet", "TV", "Appliance"], key="inventory_product")
+        stock = st.number_input("Stock Level", min_value=0, value=0, key="inventory_stock")
+        if st.button("Update Inventory", key="update_inventory_button"):
+            if add_inventory(product, stock):
+                st.success("Inventory updated!")
 
-# Tab 3: Manage Customers
-with tab3:
-    st.subheader("Add Customer")
-    name = st.text_input("Customer Name")
-    email = st.text_input("Customer Email")
-    is_active = st.checkbox("Active Customer", value=True)
-    if st.button("Add Customer"):
-        customer_id = add_customer(name, email, orders=0, is_active=1 if is_active else 0)
-        if customer_id:
-            st.success(f"Customer added with ID: {customer_id}")
-    
-    st.subheader("View Customers")
-    customer_df = fetch_customers()
-    st.dataframe(customer_df)
+    # Tab 3: Manage Customers
+    with tab3:
+        st.subheader("Add Customer")
+        name = st.text_input("Customer Name", key="customer_name")
+        email = st.text_input("Customer Email", key="customer_email")
+        is_active = st.checkbox("Active Customer", value=True, key="customer_active")
+        if st.button("Add Customer", key="add_customer_button"):
+            customer_id = add_customer(name, email, orders=0, is_active=1 if is_active else 0)
+            if customer_id:
+                st.success(f"Customer added with ID: {customer_id}")
+        
+        st.subheader("View Customers")
+        customer_df = fetch_customers()
+        st.dataframe(customer_df)
 
-# Tab 4: Import Data
-with tab4:
-    st.subheader("Import Sales Data from CSV")
-    st.write("CSV format: product,quantity,selling_price,buying_price,customer_id")
-    uploaded_file = st.file_uploader("Upload CSV", type="csv")
-    if uploaded_file:
-        df = pd.read_csv(uploaded_file)
-        for _, row in df.iterrows():
-            if add_sale(row['product'], int(row['quantity']), float(row['selling_price']), float(row['buying_price']), int(row['customer_id'])):
-                st.success("Sales data imported!")
-            else:
-                st.error("Failed to import some sales data.")
+    # Tab 4: Import Data
+    with tab4:
+        st.subheader("Import Data from CSV")
+        
+        # Sales CSV Import
+        st.write("Sales CSV format: product,quantity,selling_price,buying_price,customer_id")
+        sales_file = st.file_uploader("Upload Sales CSV", type="csv", key="sales_csv_upload")
+        if sales_file:
+            df = pd.read_csv(sales_file)
+            for _, row in df.iterrows():
+                if add_sale(row['product'], int(row['quantity']), float(row['selling_price']), float(row['buying_price']), int(row['customer_id'])):
+                    st.success(f"Sale for {row['product']} imported!")
+                else:
+                    st.error(f"Failed to import sale for {row['product']}.")
 
-# Simulate Business Activity
-if st.button("Simulate Daily Sales"):
-    products = ['Phone', 'Tablet', 'TV', 'Appliance']
-    for product in products:
-        quantity = random.randint(1, 10)
-        selling_price = random.uniform(5000, 50000)
-        buying_price = selling_price * random.uniform(0.6, 0.8)
-        customer_id = random.randint(1, 10)
-        if add_sale(product, quantity, selling_price, buying_price, customer_id):
-            st.success("Simulated daily sales added!")
+        # Inventory CSV Import
+        st.write("Inventory CSV format: product,stock,last_updated")
+        inventory_file = st.file_uploader("Upload Inventory CSV", type="csv", key="inventory_csv_upload")
+        if inventory_file:
+            df = pd.read_csv(inventory_file)
+            for _, row in df.iterrows():
+                if add_inventory(row['product'], int(row['stock']), row['last_updated']):
+                    st.success(f"Inventory for {row['product']} imported!")
+                else:
+                    st.error(f"Failed to import inventory for {row['product']}.")
+
+        # Customers CSV Import
+        st.write("Customers CSV format: name,email,orders,is_active")
+        customers_file = st.file_uploader("Upload Customers CSV", type="csv", key="customers_csv_upload")
+        if customers_file:
+            df = pd.read_csv(customers_file)
+            for _, row in df.iterrows():
+                customer_id = add_customer(row['name'], row['email'], int(row['orders']), int(row['is_active']))
+                if customer_id:
+                    st.success(f"Customer {row['name']} imported with ID: {customer_id}")
+                else:
+                    st.error(f"Failed to import customer {row['name']}.")
+
+    # Simulate Business Activity
+    if st.button("Simulate Daily Sales", key="simulate_sales"):
+        products = ['Phone', 'Tablet', 'TV', 'Appliance']
+        for product in products:
+            quantity = random.randint(1, 10)
+            selling_price = random.uniform(5000, 50000)
+            buying_price = selling_price * random.uniform(0.6, 0.8)
+            customer_id = random.randint(1, 10)
+            if add_sale(product, quantity, selling_price, buying_price, customer_id):
+                st.success("Simulated daily sales added!")
+
+if __name__ == "__main__":
+    main()

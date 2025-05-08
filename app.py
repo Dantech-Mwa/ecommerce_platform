@@ -143,9 +143,9 @@ def schedule_data_update():
 
 # --- Streamlit Interface ---
 def main():
-    st.set_page_config(page_title="Business Insights Dashboard", layout="wide")
+    # No st.set_page_config()
     st.title("📊 E-Commerce Analytics Dashboard")
-    
+    st.title("Analytics Dashboard")
     # Initialize database
     init_db()
     
@@ -177,16 +177,16 @@ def main():
     col1, col2, col3 = st.columns(3)
     fig1, fig2, fig3, fig4 = create_visualizations(sales_df, inventory_df, customer_df)
     with col1:
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig1, use_container_width=True, key="analytics_sales_by_product")
     with col2:
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, use_container_width=True, key="analytics_weekly_revenue")
     with col3:
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, use_container_width=True, key="analytics_inventory_levels")
     
     # Second row: Customer Churn (centered)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig4, use_container_width=True, key="analytics_customer_churn")
 
 if __name__ == "__main__":
     schedule_data_update()
