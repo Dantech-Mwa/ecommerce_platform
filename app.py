@@ -28,7 +28,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             product TEXT,
-            stock INTEGER,
+            stock INTEGER CHECK(stock >= 0),
             last_updated TEXT
         )
     ''')
@@ -117,22 +117,28 @@ def generate_sample_data():
     try:
         products = ['Phone', 'Tablet', 'TV', 'Appliance']
         sale_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        conn = sqlite3.connect('business_data.db')
+        c = conn.cursor()
         for product in products:
-            quantity = random.randint(1, 20)
-            selling_price = random.uniform(5000, 50000)  # Ksh per unit
-            buying_price = selling_price * random.uniform(0.6, 0.8)  # 60-80% of selling price
+            # Initialize inventory with sufficient stock
+            c.execute('INSERT OR REPLACE INTO inventory (product, stock, last_updated) VALUES (?, ?, ?)',
+                      (product, 100, sale_date))  # Start with 100 units
+            # Generate sale within stock limits
+            c.execute('SELECT stock FROM inventory WHERE product = ?', (product,))
+            stock = c.fetchone()[0]
+            quantity = random.randint(1, min(stock, 20))
+            selling_price = random.uniform(5000, 50000)
+            buying_price = selling_price * random.uniform(0.6, 0.8)
             total_selling_price = quantity * selling_price
             total_buying_price = quantity * buying_price
             revenue = total_selling_price - total_buying_price
             customer_id = random.randint(1, 10)
-            conn = sqlite3.connect('business_data.db')
-            c = conn.cursor()
             c.execute('INSERT INTO sales (sale_date, product, quantity, total_selling_price, total_buying_price, revenue, customer_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                       (sale_date, product, quantity, total_selling_price, total_buying_price, revenue, customer_id))
-            c.execute('INSERT OR REPLACE INTO inventory (product, stock, last_updated) VALUES (?, ?, ?)',
-                      (product, random.randint(10, 100), sale_date))
-            conn.commit()
-            conn.close()
+            c.execute('UPDATE inventory SET stock = stock - ?, last_updated = ? WHERE product = ?',
+                      (quantity, sale_date, product))
+        conn.commit()
+        conn.close()
     except sqlite3.Error as e:
         st.error(f"Database error: {e}")
 
@@ -179,6 +185,26 @@ def main():
         st.dataframe(high_value_customers)
     else:
         st.write("No customers with 100 or more orders yet.")
+    
+    # Display all stored data
+    st.subheader("📋 All Stored Data")
+    st.write("### Sales Data")
+    if not sales_df.empty:
+        st.dataframe(sales_df)
+    else:
+        st.write("No sales data available.")
+    
+    st.write("### Inventory Data")
+    if not inventory_df.empty:
+        st.dataframe(inventory_df)
+    else:
+        st.write("No inventory data available.")
+    
+    st.write("### Customers Data")
+    if not customer_df.empty:
+        st.dataframe(customer_df)
+    else:
+        st.write("No customer data available.")
     
     # Display visualizations
     st.subheader("📊 Visual Analytics")
