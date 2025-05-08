@@ -26,7 +26,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             product TEXT,
-            stock INTEGER,
+            stock INTEGER CHECK(stock >= 0),  -- Prevent negative stock
             last_updated TEXT
         )
     ''')
@@ -82,10 +82,14 @@ def add_sale(product, quantity, selling_price, buying_price, customer_id):
         return True
     except sqlite3.Error as e:
         st.error(f"Database error: {e}")
+        conn.close()
         return False
 
 def add_inventory(product, stock, last_updated=None):
     try:
+        if stock < 0:
+            st.error(f"Stock for {product} cannot be negative.")
+            return False
         if last_updated is None:
             last_updated = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         conn = sqlite3.connect('business_data.db')
@@ -264,12 +268,20 @@ def main():
     if st.button("Simulate Daily Sales", key="simulate_sales"):
         products = ['Phone', 'Tablet', 'TV', 'Appliance']
         for product in products:
-            quantity = random.randint(1, 10)
-            selling_price = random.uniform(5000, 50000)
-            buying_price = selling_price * random.uniform(0.6, 0.8)
-            customer_id = random.randint(1, 10)
-            if add_sale(product, quantity, selling_price, buying_price, customer_id):
-                st.success("Simulated daily sales added!")
+            conn = sqlite3.connect('business_data.db')
+            c = conn.cursor()
+            c.execute('SELECT stock FROM inventory WHERE product = ?', (product,))
+            stock_result = c.fetchone()
+            if stock_result and stock_result[0] > 0:
+                quantity = random.randint(1, min(stock_result[0], 10))  # Limit to available stock
+                selling_price = random.uniform(5000, 50000)
+                buying_price = selling_price * random.uniform(0.6, 0.8)
+                customer_id = random.randint(1, 10)
+                if add_sale(product, quantity, selling_price, buying_price, customer_id):
+                    st.success(f"Simulated sale for {product} added!")
+            else:
+                st.warning(f"Skipping {product}: No stock available.")
+            conn.close()
 
 if __name__ == "__main__":
     main()
