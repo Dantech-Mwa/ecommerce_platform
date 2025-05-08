@@ -37,7 +37,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS customers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            email TEXT,
+            email TEXT UNIQUE,
             orders INTEGER,
             is_active INTEGER
         )
@@ -161,16 +161,24 @@ def main():
     # Compute metrics
     metrics = compute_metrics(sales_df, customer_df)
     
-    
     # Display metrics
     st.subheader("📈 Key Performance Indicators")
     col1, col2, col3, col4, col5, col6 = st.columns(6)
-    col1.metric("Total Revenue/100,000", f"Ksh {metrics['total_revenue'] / 100000:.2f}")
-    col2.metric("Avg Order Value/100,000", f"Ksh {metrics['avg_order_value'] / 100000:.2f}")
+    col1.metric("Total Revenue", f"Ksh {int(metrics['total_revenue']):,}")
+    col2.metric("Avg Order Value", f"Ksh {int(metrics['avg_order_value']):,}")
     col3.metric("Total Quantity Sold", f"{metrics['total_quantity']:,}")
     col4.metric("Churn Rate", f"{metrics['churn_rate']:.2f}%")
     col5.metric("Total Customers", f"{metrics['total_customers']:,}")
     col6.metric("Profit Margin", f"{metrics['profit_margin']:.2f}%")
+    
+    # Display high-value customers (100+ orders)
+    st.subheader("🏆 High-Value Customers (100+ Orders)")
+    high_value_customers = customer_df[customer_df['orders'] >= 100][['id', 'name', 'email', 'orders']]
+    if not high_value_customers.empty:
+        high_value_customers['Discount'] = '2% on all purchases'
+        st.dataframe(high_value_customers)
+    else:
+        st.write("No customers with 100 or more orders yet.")
     
     # Display visualizations
     st.subheader("📊 Visual Analytics")
