@@ -164,8 +164,9 @@ def main():
     # Display metrics
     st.subheader("📈 Key Performance Indicators")
     col1, col2, col3, col4, col5, col6 = st.columns(6)
-    col1.metric("Total Revenue", f"Ksh {metrics['total_revenue']:,.2f}")
-    col2.metric("Avg Order Value", f"Ksh {metrics['avg_order_value']:,.2f}")
+    # Format Total Revenue and Avg Order Value as full integers
+    col1.metric("Total Revenue", f"Ksh {int(metrics['total_revenue']):,}")
+    col2.metric("Avg Order Value", f"Ksh {int(metrics['avg_order_value']):,}")
     col3.metric("Total Quantity Sold", f"{metrics['total_quantity']:,}")
     col4.metric("Churn Rate", f"{metrics['churn_rate']:.2f}%")
     col5.metric("Total Customers", f"{metrics['total_customers']:,}")
