@@ -35,7 +35,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS customers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            email TEXT,
+            email TEXT UNIQUE,  -- Ensure email is unique
             orders INTEGER,
             is_active INTEGER
         )
@@ -45,15 +45,38 @@ def init_db():
 
 def add_sale(product, quantity, selling_price, buying_price, customer_id):
     try:
+        conn = sqlite3.connect('business_data.db')
+        c = conn.cursor()
+        # Validate customer_id exists
+        c.execute('SELECT id FROM customers WHERE id = ?', (customer_id,))
+        if not c.fetchone():
+            st.error(f"Customer ID {customer_id} does not exist.")
+            conn.close()
+            return False
+        # Validate product exists and has sufficient stock
+        c.execute('SELECT stock FROM inventory WHERE product = ?', (product,))
+        stock_result = c.fetchone()
+        if not stock_result:
+            st.error(f"Product {product} not found in inventory.")
+            conn.close()
+            return False
+        current_stock = stock_result[0]
+        if current_stock < quantity:
+            st.error(f"Insufficient stock for {product}. Available: {current_stock}, Requested: {quantity}")
+            conn.close()
+            return False
+        # Proceed with sale
         sale_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         total_selling_price = quantity * selling_price
         total_buying_price = quantity * buying_price
         revenue = total_selling_price - total_buying_price
-        conn = sqlite3.connect('business_data.db')
-        c = conn.cursor()
         c.execute('INSERT INTO sales (sale_date, product, quantity, total_selling_price, total_buying_price, revenue, customer_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                   (sale_date, product, quantity, total_selling_price, total_buying_price, revenue, customer_id))
-        c.execute('UPDATE inventory SET stock = stock - ? WHERE product = ?', (quantity, product))
+        # Update inventory stock
+        c.execute('UPDATE inventory SET stock = stock - ?, last_updated = ? WHERE product = ?',
+                  (quantity, sale_date, product))
+        # Increment customer orders
+        c.execute('UPDATE customers SET orders = orders + 1 WHERE id = ?', (customer_id,))
         conn.commit()
         conn.close()
         return True
@@ -80,6 +103,13 @@ def add_customer(name, email, orders=0, is_active=1):
     try:
         conn = sqlite3.connect('business_data.db')
         c = conn.cursor()
+        # Check if email already exists
+        c.execute('SELECT email FROM customers WHERE email = ?', (email,))
+        if c.fetchone():
+            st.error(f"Customer with email {email} already exists.")
+            conn.close()
+            return None
+        # Add new customer
         c.execute('INSERT INTO customers (name, email, orders, is_active) VALUES (?, ?, ?, ?)',
                   (name, email, orders, is_active))
         conn.commit()
