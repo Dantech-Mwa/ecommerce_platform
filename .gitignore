@@ -1,0 +1,18 @@
+# SQLite database
+business_data.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.ipynb_checkpoints/
+
+# Conda environment
+.conda/
+*.egg-info/
+
+# System files
+.DS_Store
+Thumbs.db
